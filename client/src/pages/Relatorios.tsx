@@ -1,7 +1,7 @@
 /*
- * Relatórios — Gráficos de desempenho, engajamento e exportação PDF
- * Design: Cards com métricas, gráficos Recharts, botões de download PDF
- * O filtro de período (7d, 30d, 90d, 1a) controla tanto os gráficos quanto os PDFs
+ * Relatórios — Gráficos de desempenho, engajamento e exportação PDF / Excel / CSV
+ * Design: Cards com métricas, gráficos Recharts, botões de download multi-formato
+ * O filtro de período (7d, 30d, 90d, 1a) controla tanto os gráficos quanto os exports
  */
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,13 +11,18 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel
+} from "@/components/ui/dropdown-menu";
+import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, RadarChart, Radar,
   PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 import {
   Download, FileText, Calendar, TrendingUp, Users, Target,
-  Loader2, FileDown, BarChart3, School, BookOpen, CheckCircle2
+  Loader2, FileDown, BarChart3, School, BookOpen, CheckCircle2,
+  FileSpreadsheet, ChevronDown, Table2, File
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -29,7 +34,16 @@ import {
   exportEngajamentoMensalPDF,
   exportAnaliseTrilhasPDF,
 } from "@/lib/pdfExport";
+import {
+  exportDesempenhoGeralXLSX, exportDesempenhoGeralCSV,
+  exportProgressoEscolasXLSX, exportProgressoEscolasCSV,
+  exportEngajamentoMensalXLSX, exportEngajamentoMensalCSV,
+  exportAnaliseTrilhasXLSX, exportAnaliseTrilhasCSV,
+  exportDadosCompletosXLSX,
+} from "@/lib/spreadsheetExport";
 import { getReportData, type PeriodoKey, type ReportDataSet } from "@/lib/reportData";
+
+type ExportFormat = "pdf" | "xlsx" | "csv";
 
 const PERIODO_OPTIONS: { value: PeriodoKey; label: string }[] = [
   { value: "7d", label: "Últimos 7 dias" },
@@ -38,15 +52,20 @@ const PERIODO_OPTIONS: { value: PeriodoKey; label: string }[] = [
   { value: "1a", label: "Último ano" },
 ];
 
+const FORMAT_LABELS: Record<ExportFormat, string> = {
+  pdf: "PDF",
+  xlsx: "Excel",
+  csv: "CSV",
+};
+
 interface ReportItem {
   id: string;
   nome: string;
   descricao: string;
-  tipo: "PDF";
   icon: typeof FileText;
   iconColor: string;
   iconBg: string;
-  exportFn: (data: ReportDataSet) => void;
+  exportFns: Record<ExportFormat, (data: ReportDataSet) => void>;
 }
 
 export default function Relatorios() {
@@ -59,17 +78,15 @@ export default function Relatorios() {
   // Dados reativos ao período selecionado
   const data = useMemo(() => getReportData(periodo), [periodo]);
 
-  const handleExport = async (report: ReportItem) => {
+  const doExport = async (reportId: string, reportName: string, format: ExportFormat, fn: (d: ReportDataSet) => void) => {
     if (!canExport) {
       toast.error("Você não tem permissão para exportar relatórios.");
       return;
     }
-
-    setExportingId(report.id);
-
+    setExportingId(reportId);
     try {
-      await new Promise((r) => setTimeout(r, 600));
-      report.exportFn(data);
+      await new Promise((r) => setTimeout(r, 500));
+      fn(data);
 
       if (user) {
         addLog({
@@ -79,10 +96,10 @@ export default function Relatorios() {
           userId: user.id,
           userName: user.nome,
           userRole: user.role,
-          description: `Relatório exportado: ${report.nome} (${data.periodo.label})`,
+          description: `Relatório exportado: ${reportName} em ${FORMAT_LABELS[format]} (${data.periodo.label})`,
           details: {
-            "Formato": "PDF",
-            "Relatório": report.nome,
+            "Formato": FORMAT_LABELS[format],
+            "Relatório": reportName,
             "Período": data.periodo.label,
             "Intervalo": data.periodo.descricao,
             "Data de exportação": new Date().toLocaleString("pt-BR"),
@@ -90,8 +107,8 @@ export default function Relatorios() {
         });
       }
 
-      toast.success(`${report.nome} exportado com sucesso!`, {
-        description: `Período: ${data.periodo.label} (${data.periodo.descricao})`,
+      toast.success(`${reportName} exportado com sucesso!`, {
+        description: `Formato: ${FORMAT_LABELS[format]} | Período: ${data.periodo.label}`,
       });
     } catch (err) {
       toast.error("Erro ao gerar o relatório. Tente novamente.");
@@ -106,60 +123,74 @@ export default function Relatorios() {
       id: "desempenho",
       nome: "Relatório de Desempenho Geral",
       descricao: "Análise completa com métricas, distribuição por nível, habilidades e recomendações",
-      tipo: "PDF",
       icon: BarChart3,
       iconColor: "text-[#7C3AED]",
       iconBg: "bg-[#7C3AED]/10",
-      exportFn: exportDesempenhoGeralPDF,
+      exportFns: {
+        pdf: exportDesempenhoGeralPDF,
+        xlsx: exportDesempenhoGeralXLSX,
+        csv: exportDesempenhoGeralCSV,
+      },
     },
     {
       id: "escolas",
       nome: "Progresso por Escola",
       descricao: "Comparativo detalhado entre escolas parceiras com ranking, métricas e análise individual",
-      tipo: "PDF",
       icon: School,
       iconColor: "text-[#F97316]",
       iconBg: "bg-[#F97316]/10",
-      exportFn: exportProgressoEscolasPDF,
+      exportFns: {
+        pdf: exportProgressoEscolasPDF,
+        xlsx: exportProgressoEscolasXLSX,
+        csv: exportProgressoEscolasCSV,
+      },
     },
     {
       id: "engajamento",
       nome: "Engajamento Mensal",
       descricao: "Sessões, tempo médio, taxa de retorno, uso do Chat IA e tendências de engajamento",
-      tipo: "PDF",
       icon: TrendingUp,
       iconColor: "text-emerald-600",
       iconBg: "bg-emerald-50",
-      exportFn: exportEngajamentoMensalPDF,
+      exportFns: {
+        pdf: exportEngajamentoMensalPDF,
+        xlsx: exportEngajamentoMensalXLSX,
+        csv: exportEngajamentoMensalCSV,
+      },
     },
     {
       id: "trilhas",
       nome: "Análise de Trilhas",
       descricao: "Desempenho por trilha e missão com taxas de conclusão, notas médias e tempo de estudo",
-      tipo: "PDF",
       icon: BookOpen,
       iconColor: "text-blue-600",
       iconBg: "bg-blue-50",
-      exportFn: exportAnaliseTrilhasPDF,
+      exportFns: {
+        pdf: exportAnaliseTrilhasPDF,
+        xlsx: exportAnaliseTrilhasXLSX,
+        csv: exportAnaliseTrilhasCSV,
+      },
     },
   ];
 
-  const handleExportAll = async () => {
+  const handleExportAll = async (format: ExportFormat) => {
     if (!canExport) {
       toast.error("Você não tem permissão para exportar relatórios.");
       return;
     }
-
     setExportingId("all");
     try {
-      await new Promise((r) => setTimeout(r, 400));
-      exportDesempenhoGeralPDF(data);
-      await new Promise((r) => setTimeout(r, 300));
-      exportProgressoEscolasPDF(data);
-      await new Promise((r) => setTimeout(r, 300));
-      exportEngajamentoMensalPDF(data);
-      await new Promise((r) => setTimeout(r, 300));
-      exportAnaliseTrilhasPDF(data);
+      if (format === "xlsx") {
+        // Exportar tudo em um único arquivo Excel com múltiplas abas
+        await new Promise((r) => setTimeout(r, 400));
+        exportDadosCompletosXLSX(data);
+      } else {
+        // PDF e CSV: exportar individualmente
+        for (const r of relatorios) {
+          await new Promise((res) => setTimeout(res, 300));
+          r.exportFns[format](data);
+        }
+      }
 
       if (user) {
         addLog({
@@ -169,10 +200,10 @@ export default function Relatorios() {
           userId: user.id,
           userName: user.nome,
           userRole: user.role,
-          description: `Exportação em lote: todos os relatórios (${data.periodo.label})`,
+          description: `Exportação em lote: ${format === "xlsx" ? "Dados Completos" : "todos os relatórios"} em ${FORMAT_LABELS[format]} (${data.periodo.label})`,
           details: {
-            "Formato": "PDF",
-            "Quantidade": "4 relatórios",
+            "Formato": FORMAT_LABELS[format],
+            "Quantidade": format === "xlsx" ? "1 arquivo (7 abas)" : "4 relatórios",
             "Período": data.periodo.label,
             "Intervalo": data.periodo.descricao,
             "Data de exportação": new Date().toLocaleString("pt-BR"),
@@ -180,18 +211,23 @@ export default function Relatorios() {
         });
       }
 
-      toast.success("Todos os relatórios foram exportados!", {
-        description: `Período: ${data.periodo.label} — 4 arquivos PDF baixados.`,
-      });
+      toast.success(
+        format === "xlsx"
+          ? "Dados completos exportados em Excel!"
+          : `Todos os relatórios exportados em ${FORMAT_LABELS[format]}!`,
+        {
+          description: `Período: ${data.periodo.label}${format === "xlsx" ? " — 7 abas em 1 arquivo" : ` — 4 arquivos ${FORMAT_LABELS[format]}`}`,
+        },
+      );
     } catch (err) {
       toast.error("Erro ao exportar relatórios.");
+      console.error(err);
     } finally {
       setExportingId(null);
     }
   };
 
-  // Período label para exibição
-  const periodoLabel = PERIODO_OPTIONS.find(p => p.value === periodo)?.label ?? "";
+  const periodoLabel = PERIODO_OPTIONS.find((p) => p.value === periodo)?.label ?? "";
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -214,18 +250,47 @@ export default function Relatorios() {
             </SelectContent>
           </Select>
           {canExport && (
-            <Button
-              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
-              onClick={handleExportAll}
-              disabled={!!exportingId}
-            >
-              {exportingId === "all" ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-2" />
-              )}
-              Exportar Todos
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+                  disabled={!!exportingId}
+                >
+                  {exportingId === "all" ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  Exportar Todos
+                  <ChevronDown className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Exportar todos os relatórios</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleExportAll("pdf")} className="gap-2">
+                  <FileText className="w-4 h-4 text-red-500" />
+                  <div>
+                    <p className="text-sm font-medium">PDF</p>
+                    <p className="text-xs text-muted-foreground">4 arquivos individuais</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportAll("xlsx")} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  <div>
+                    <p className="text-sm font-medium">Excel (XLSX)</p>
+                    <p className="text-xs text-muted-foreground">1 arquivo com 7 abas</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportAll("csv")} className="gap-2">
+                  <Table2 className="w-4 h-4 text-blue-500" />
+                  <div>
+                    <p className="text-sm font-medium">CSV</p>
+                    <p className="text-xs text-muted-foreground">4 arquivos individuais</p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
@@ -235,7 +300,7 @@ export default function Relatorios() {
         <Calendar className="w-4 h-4 text-[#7C3AED]" />
         <span>Exibindo dados de <strong className="text-foreground">{periodoLabel}</strong></span>
         <span className="text-xs">({data.periodo.descricao})</span>
-        <span className="ml-auto text-xs">Gráficos e PDFs refletem este período</span>
+        <span className="ml-auto text-xs">Gráficos e exportações refletem este período</span>
       </div>
 
       {/* Export Cards */}
@@ -244,15 +309,20 @@ export default function Relatorios() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <FileDown className="w-4 h-4 text-[#7C3AED]" />
-              Exportar Relatórios em PDF
+              Exportar Relatórios
             </CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[#7C3AED] border-[#7C3AED]/20 bg-[#7C3AED]/5 text-xs">
                 {periodoLabel}
               </Badge>
+              <div className="flex items-center gap-1">
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-red-50 text-red-600 border-red-200">PDF</Badge>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-emerald-50 text-emerald-600 border-emerald-200">XLSX</Badge>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-blue-50 text-blue-600 border-blue-200">CSV</Badge>
+              </div>
               {!canExport && (
                 <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-xs">
-                  Sem permissão de exportação
+                  Sem permissão
                 </Badge>
               )}
             </div>
@@ -264,16 +334,11 @@ export default function Relatorios() {
               const Icon = r.icon;
               const isExporting = exportingId === r.id;
               return (
-                <motion.div
+                <div
                   key={r.id}
-                  whileHover={canExport ? { scale: 1.01 } : {}}
-                  whileTap={canExport ? { scale: 0.99 } : {}}
                   className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${
-                    canExport
-                      ? "hover:border-[#7C3AED]/30 hover:bg-[#7C3AED]/[0.02] cursor-pointer"
-                      : "opacity-60 cursor-not-allowed"
-                  } ${isExporting ? "border-[#7C3AED]/40 bg-[#7C3AED]/[0.04]" : ""}`}
-                  onClick={() => !isExporting && canExport && handleExport(r)}
+                    isExporting ? "border-[#7C3AED]/40 bg-[#7C3AED]/[0.04]" : ""
+                  }`}
                 >
                   <div className={`w-10 h-10 rounded-lg ${r.iconBg} flex items-center justify-center shrink-0`}>
                     {isExporting ? (
@@ -283,32 +348,53 @@ export default function Relatorios() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold truncate">{r.nome}</p>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 shrink-0">{r.tipo}</Badge>
-                    </div>
+                    <p className="text-sm font-semibold truncate">{r.nome}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{r.descricao}</p>
                     {isExporting && (
-                      <p className="text-xs text-[#7C3AED] mt-1 font-medium">Gerando PDF ({periodoLabel})...</p>
+                      <p className="text-xs text-[#7C3AED] mt-1 font-medium">Gerando arquivo ({periodoLabel})...</p>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="shrink-0 h-8 w-8 p-0"
-                    disabled={!canExport || !!exportingId}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleExport(r);
-                    }}
-                  >
-                    {isExporting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                  </Button>
-                </motion.div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 gap-1"
+                          disabled={!canExport || !!exportingId}
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <ChevronDown className="w-3 h-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">Formato de exportação</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => doExport(r.id, r.nome, "pdf", r.exportFns.pdf)}
+                          className="gap-2"
+                        >
+                          <FileText className="w-4 h-4 text-red-500" />
+                          <span className="text-sm">PDF</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => doExport(r.id, r.nome, "xlsx", r.exportFns.xlsx)}
+                          className="gap-2"
+                        >
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                          <span className="text-sm">Excel (XLSX)</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => doExport(r.id, r.nome, "csv", r.exportFns.csv)}
+                          className="gap-2"
+                        >
+                          <Table2 className="w-4 h-4 text-blue-500" />
+                          <span className="text-sm">CSV</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -320,9 +406,7 @@ export default function Relatorios() {
         {/* Performance Chart */}
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Desempenho — {periodoLabel}</CardTitle>
-            </div>
+            <CardTitle className="text-base">Desempenho — {periodoLabel}</CardTitle>
           </CardHeader>
           <CardContent>
             <AnimatePresence mode="wait">
@@ -457,30 +541,46 @@ export default function Relatorios() {
                   <p className="text-xs font-medium">Intervalo selecionado</p>
                 </div>
                 <p className="text-sm font-semibold">{data.periodo.descricao}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Todos os PDFs refletem este período</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Todos os arquivos refletem este período</p>
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Conteúdo dos relatórios</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Formatos disponíveis</p>
                 {[
-                  { label: "Desempenho Geral", pages: "4 páginas", color: "bg-[#7C3AED]" },
-                  { label: "Progresso por Escola", pages: "3 páginas", color: "bg-[#F97316]" },
-                  { label: "Engajamento", pages: "2 páginas", color: "bg-emerald-500" },
-                  { label: "Análise de Trilhas", pages: "2 páginas", color: "bg-blue-500" },
+                  { label: "PDF", desc: "Relatório visual com capa e tabelas", icon: FileText, color: "text-red-500", bg: "bg-red-50" },
+                  { label: "Excel (XLSX)", desc: "Planilha com múltiplas abas", icon: FileSpreadsheet, color: "text-emerald-600", bg: "bg-emerald-50" },
+                  { label: "CSV", desc: "Dados tabulares para análise", icon: Table2, color: "text-blue-500", bg: "bg-blue-50" },
                 ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${item.color}`} />
-                      <span className="text-muted-foreground">{item.label}</span>
+                  <div key={item.label} className="flex items-center gap-2.5 text-sm">
+                    <div className={`w-6 h-6 rounded flex items-center justify-center ${item.bg}`}>
+                      <item.icon className={`w-3.5 h-3.5 ${item.color}`} />
                     </div>
-                    <span className="text-xs text-muted-foreground">{item.pages}</span>
+                    <div>
+                      <span className="font-medium text-xs">{item.label}</span>
+                      <p className="text-[10px] text-muted-foreground leading-tight">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Conteúdo</p>
+                {[
+                  { label: "Desempenho Geral", color: "bg-[#7C3AED]" },
+                  { label: "Progresso por Escola", color: "bg-[#F97316]" },
+                  { label: "Engajamento", color: "bg-emerald-500" },
+                  { label: "Análise de Trilhas", color: "bg-blue-500" },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-2 text-sm">
+                    <div className={`w-2 h-2 rounded-full ${item.color}`} />
+                    <span className="text-muted-foreground text-xs">{item.label}</span>
                   </div>
                 ))}
               </div>
 
               <div className="pt-2 border-t">
                 <p className="text-xs text-muted-foreground">
-                  Cada relatório inclui capa com período, tabelas detalhadas, análises e recomendações.
+                  Use o dropdown em cada card para escolher o formato ou exporte tudo de uma vez pelo botão acima.
                 </p>
               </div>
             </div>
