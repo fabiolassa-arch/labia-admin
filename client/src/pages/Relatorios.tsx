@@ -1,6 +1,8 @@
 /*
- * Relatórios — Gráficos de desempenho, engajamento e exportação
+ * Relatórios — Gráficos de desempenho, engajamento e exportação PDF
+ * Design: Cards com métricas, gráficos Recharts, botões de download PDF
  */
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +14,20 @@ import {
   PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
-import { Download, FileText, Calendar, TrendingUp, Users, Target } from "lucide-react";
+import {
+  Download, FileText, Calendar, TrendingUp, Users, Target,
+  Loader2, FileDown, BarChart3, School, BookOpen, CheckCircle2
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAudit } from "@/contexts/AuditContext";
+import {
+  exportDesempenhoGeralPDF,
+  exportProgressoEscolasPDF,
+  exportEngajamentoMensalPDF,
+  exportAnaliseTrilhasPDF,
+} from "@/lib/pdfExport";
 
 const desempenhoMensal = [
   { mes: "Set", novosAlunos: 89, missoesConc: 320, taxaEngaj: 68 },
@@ -51,14 +64,152 @@ const habilidadesRadar = [
   { skill: "Colaboração", A: 80, B: 68 },
 ];
 
-const relatoriosDisponiveis = [
-  { nome: "Relatório de Desempenho Geral", tipo: "PDF", tamanho: "2.4 MB", data: "Mar 2026" },
-  { nome: "Progresso por Escola", tipo: "XLSX", tamanho: "1.8 MB", data: "Mar 2026" },
-  { nome: "Engajamento Mensal", tipo: "PDF", tamanho: "3.1 MB", data: "Fev 2026" },
-  { nome: "Análise de Trilhas", tipo: "PDF", tamanho: "1.5 MB", data: "Fev 2026" },
-];
+interface ReportItem {
+  id: string;
+  nome: string;
+  descricao: string;
+  tipo: "PDF";
+  icon: typeof FileText;
+  iconColor: string;
+  iconBg: string;
+  exportFn: () => void;
+}
 
 export default function Relatorios() {
+  const { user, hasPermission } = useAuth();
+  const { addLog } = useAudit();
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const canExport = hasPermission("relatorios.export");
+
+  const handleExport = async (report: ReportItem) => {
+    if (!canExport) {
+      toast.error("Você não tem permissão para exportar relatórios.");
+      return;
+    }
+
+    setExportingId(report.id);
+
+    try {
+      // Small delay for UX feedback
+      await new Promise((r) => setTimeout(r, 600));
+      report.exportFn();
+
+      // Log audit
+      if (user) {
+        addLog({
+          action: "relatorio.exportar",
+          category: "relatorios",
+          severity: "info",
+          userId: user.id,
+          userName: user.nome,
+          userRole: user.role,
+          description: `Relatório exportado: ${report.nome}`,
+          details: {
+            "Formato": "PDF",
+            "Relatório": report.nome,
+            "Data de exportação": new Date().toLocaleString("pt-BR"),
+          },
+        });
+      }
+
+      toast.success(`${report.nome} exportado com sucesso!`, {
+        description: "O arquivo PDF foi baixado para o seu computador.",
+      });
+    } catch (err) {
+      toast.error("Erro ao gerar o relatório. Tente novamente.");
+      console.error(err);
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const relatorios: ReportItem[] = [
+    {
+      id: "desempenho",
+      nome: "Relatório de Desempenho Geral",
+      descricao: "Análise completa com métricas mensais, distribuição por nível, habilidades e recomendações",
+      tipo: "PDF",
+      icon: BarChart3,
+      iconColor: "text-[#7C3AED]",
+      iconBg: "bg-[#7C3AED]/10",
+      exportFn: exportDesempenhoGeralPDF,
+    },
+    {
+      id: "escolas",
+      nome: "Progresso por Escola",
+      descricao: "Comparativo detalhado entre escolas parceiras com ranking, métricas e análise individual",
+      tipo: "PDF",
+      icon: School,
+      iconColor: "text-[#F97316]",
+      iconBg: "bg-[#F97316]/10",
+      exportFn: exportProgressoEscolasPDF,
+    },
+    {
+      id: "engajamento",
+      nome: "Engajamento Mensal",
+      descricao: "Sessões, tempo médio, taxa de retorno, uso do Chat IA e tendências de engajamento",
+      tipo: "PDF",
+      icon: TrendingUp,
+      iconColor: "text-emerald-600",
+      iconBg: "bg-emerald-50",
+      exportFn: exportEngajamentoMensalPDF,
+    },
+    {
+      id: "trilhas",
+      nome: "Análise de Trilhas",
+      descricao: "Desempenho por trilha e missão com taxas de conclusão, notas médias e tempo de estudo",
+      tipo: "PDF",
+      icon: BookOpen,
+      iconColor: "text-blue-600",
+      iconBg: "bg-blue-50",
+      exportFn: exportAnaliseTrilhasPDF,
+    },
+  ];
+
+  const handleExportAll = async () => {
+    if (!canExport) {
+      toast.error("Você não tem permissão para exportar relatórios.");
+      return;
+    }
+
+    setExportingId("all");
+    try {
+      await new Promise((r) => setTimeout(r, 400));
+      exportDesempenhoGeralPDF();
+      await new Promise((r) => setTimeout(r, 300));
+      exportProgressoEscolasPDF();
+      await new Promise((r) => setTimeout(r, 300));
+      exportEngajamentoMensalPDF();
+      await new Promise((r) => setTimeout(r, 300));
+      exportAnaliseTrilhasPDF();
+
+      if (user) {
+        addLog({
+          action: "relatorio.exportar",
+          category: "relatorios",
+          severity: "info",
+          userId: user.id,
+          userName: user.nome,
+          userRole: user.role,
+          description: "Exportação em lote: todos os relatórios (4 PDFs)",
+          details: {
+            "Formato": "PDF",
+            "Quantidade": "4 relatórios",
+            "Data de exportação": new Date().toLocaleString("pt-BR"),
+          },
+        });
+      }
+
+      toast.success("Todos os relatórios foram exportados!", {
+        description: "4 arquivos PDF foram baixados.",
+      });
+    } catch (err) {
+      toast.error("Erro ao exportar relatórios.");
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
@@ -80,11 +231,94 @@ export default function Relatorios() {
               <SelectItem value="1a">Último ano</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => toast.success("Relatório exportado!")}>
-            <Download className="w-4 h-4 mr-2" /> Exportar
-          </Button>
+          {canExport && (
+            <Button
+              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white"
+              onClick={handleExportAll}
+              disabled={!!exportingId}
+            >
+              {exportingId === "all" ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Exportar Todos
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Export Cards */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileDown className="w-4 h-4 text-[#7C3AED]" />
+              Exportar Relatórios em PDF
+            </CardTitle>
+            {!canExport && (
+              <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-xs">
+                Sem permissão de exportação
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {relatorios.map((r) => {
+              const Icon = r.icon;
+              const isExporting = exportingId === r.id;
+              return (
+                <motion.div
+                  key={r.id}
+                  whileHover={canExport ? { scale: 1.01 } : {}}
+                  whileTap={canExport ? { scale: 0.99 } : {}}
+                  className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${
+                    canExport
+                      ? "hover:border-[#7C3AED]/30 hover:bg-[#7C3AED]/[0.02] cursor-pointer"
+                      : "opacity-60 cursor-not-allowed"
+                  } ${isExporting ? "border-[#7C3AED]/40 bg-[#7C3AED]/[0.04]" : ""}`}
+                  onClick={() => !isExporting && canExport && handleExport(r)}
+                >
+                  <div className={`w-10 h-10 rounded-lg ${r.iconBg} flex items-center justify-center shrink-0`}>
+                    {isExporting ? (
+                      <Loader2 className={`w-5 h-5 ${r.iconColor} animate-spin`} />
+                    ) : (
+                      <Icon className={`w-5 h-5 ${r.iconColor}`} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{r.nome}</p>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">PDF</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{r.descricao}</p>
+                    {isExporting && (
+                      <p className="text-xs text-[#7C3AED] mt-1 font-medium">Gerando PDF...</p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0 h-8 w-8 p-0"
+                    disabled={!canExport || !!exportingId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExport(r);
+                    }}
+                  >
+                    {isExporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                  </Button>
+                </motion.div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -185,26 +419,44 @@ export default function Relatorios() {
           </CardContent>
         </Card>
 
-        {/* Available Reports */}
+        {/* Export Summary */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Relatórios Disponíveis</CardTitle>
+            <CardTitle className="text-base">Resumo de Exportações</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {relatoriosDisponiveis.map((r, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors cursor-pointer"
-                  onClick={() => toast.info("Funcionalidade em breve!")}>
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <FileText className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{r.nome}</p>
-                    <p className="text-xs text-muted-foreground">{r.tipo} • {r.tamanho} • {r.data}</p>
-                  </div>
-                  <Download className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#7C3AED]/5 border border-[#7C3AED]/10">
+                <CheckCircle2 className="w-5 h-5 text-[#7C3AED] shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">4 relatórios disponíveis</p>
+                  <p className="text-xs text-muted-foreground">Todos prontos para exportação em PDF</p>
                 </div>
-              ))}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Conteúdo dos relatórios</p>
+                {[
+                  { label: "Desempenho Geral", pages: "4 páginas", color: "bg-[#7C3AED]" },
+                  { label: "Progresso por Escola", pages: "3 páginas", color: "bg-[#F97316]" },
+                  { label: "Engajamento Mensal", pages: "2 páginas", color: "bg-emerald-500" },
+                  { label: "Análise de Trilhas", pages: "2 páginas", color: "bg-blue-500" },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${item.color}`} />
+                      <span className="text-muted-foreground">{item.label}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{item.pages}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  Cada relatório inclui capa profissional, tabelas detalhadas, análises e recomendações.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
