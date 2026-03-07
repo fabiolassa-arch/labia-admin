@@ -14,6 +14,7 @@ import Alunos from "./pages/Alunos";
 import Escolas from "./pages/Escolas";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
+import Usuarios from "./pages/Usuarios";
 
 function ProtectedRoutes() {
   const { isAuthenticated } = useAuth();
@@ -44,6 +45,9 @@ function ProtectedRoutes() {
       </Route>
       <Route path="/configuracoes">
         <DashboardLayout><Configuracoes /></DashboardLayout>
+      </Route>
+      <Route path="/usuarios">
+        <DashboardLayout><Usuarios /></DashboardLayout>
       </Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
