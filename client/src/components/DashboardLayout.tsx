@@ -8,7 +8,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth, type Permission } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Route, Target, Users, School, BarChart3, Settings,
-  ChevronLeft, ChevronRight, LogOut, Bell, Search, Menu, X, Rocket, Shield, UserCog
+  ChevronLeft, ChevronRight, LogOut, Bell, Search, Menu, X, Rocket, Shield, UserCog, ScrollText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Relatórios", icon: BarChart3, path: "/relatorios", permission: "relatorios.view" },
   { label: "Configurações", icon: Settings, path: "/configuracoes", permission: "configuracoes.view" },
   { label: "Usuários", icon: UserCog, path: "/usuarios", permission: "usuarios.view" },
+  { label: "Auditoria", icon: ScrollText, path: "/auditoria", permission: "configuracoes.view" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

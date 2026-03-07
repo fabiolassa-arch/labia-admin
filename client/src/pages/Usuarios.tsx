@@ -5,6 +5,7 @@
  */
 import { useState, useMemo } from "react";
 import { useAuth, type UserRole, type AdminUser } from "@/contexts/AuthContext";
+import { useAudit } from "@/contexts/AuditContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,6 +129,7 @@ function formatDateTime(dateStr?: string) {
 
 export default function Usuarios() {
   const { user: currentUser, hasPermission, getRoleLabel } = useAuth();
+  const { addLog } = useAudit();
   const [users, setUsers] = useState<ManagedUser[]>(INITIAL_USERS);
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState<string>("todos");
@@ -212,6 +214,14 @@ export default function Usuarios() {
     setUsers((prev) => [newUser, ...prev]);
     setShowCreateModal(false);
     resetForm();
+    addLog({
+      action: "usuario.criar", category: "usuarios", severity: "info",
+      userId: currentUser?.id || "1", userName: currentUser?.nome || "Admin",
+      userRole: currentUser?.role || "super_admin",
+      description: `Novo usuário cadastrado: ${newUser.nome}`,
+      targetId: newUser.id, targetName: newUser.nome,
+      details: { "Nível": getRoleLabel(newUser.role), "E-mail": newUser.email, "Escola": newUser.escola || "—" },
+    });
     toast.success(`Usuário ${newUser.nome} cadastrado com sucesso!`);
   };
 
@@ -228,6 +238,14 @@ export default function Usuarios() {
       )
     );
     setShowEditModal(false);
+    addLog({
+      action: "usuario.editar", category: "usuarios", severity: "warning",
+      userId: currentUser?.id || "1", userName: currentUser?.nome || "Admin",
+      userRole: currentUser?.role || "super_admin",
+      description: `Usuário editado: ${formData.nome}`,
+      targetId: selectedUser.id, targetName: selectedUser.nome,
+      details: { "Nível": getRoleLabel(formData.role), "E-mail": formData.email, "Status": formData.status },
+    });
     setSelectedUser(null);
     resetForm();
     toast.success("Usuário atualizado com sucesso!");
@@ -241,6 +259,14 @@ export default function Usuarios() {
     }
     setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
     setShowDeleteDialog(false);
+    addLog({
+      action: "usuario.excluir", category: "usuarios", severity: "critical",
+      userId: currentUser?.id || "1", userName: currentUser?.nome || "Admin",
+      userRole: currentUser?.role || "super_admin",
+      description: `Usuário removido: ${selectedUser.nome}`,
+      targetId: selectedUser.id, targetName: selectedUser.nome,
+      details: { "Nível": getRoleLabel(selectedUser.role), "E-mail": selectedUser.email, "Escola": selectedUser.escola || "—" },
+    });
     setSelectedUser(null);
     toast.success(`Usuário ${selectedUser.nome} removido.`);
   };

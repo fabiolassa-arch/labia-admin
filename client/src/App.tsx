@@ -15,6 +15,8 @@ import Escolas from "./pages/Escolas";
 import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import Usuarios from "./pages/Usuarios";
+import Auditoria from "./pages/Auditoria";
+import { AuditProvider } from "./contexts/AuditContext";
 
 function ProtectedRoutes() {
   const { isAuthenticated } = useAuth();
@@ -49,6 +51,9 @@ function ProtectedRoutes() {
       <Route path="/usuarios">
         <DashboardLayout><Usuarios /></DashboardLayout>
       </Route>
+      <Route path="/auditoria">
+        <DashboardLayout><Auditoria /></DashboardLayout>
+      </Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -60,10 +65,12 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
         <AuthProvider>
+          <AuditProvider>
           <TooltipProvider>
             <Toaster />
             <ProtectedRoutes />
           </TooltipProvider>
+          </AuditProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
