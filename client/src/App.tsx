@@ -16,6 +16,11 @@ import Relatorios from "./pages/Relatorios";
 import Configuracoes from "./pages/Configuracoes";
 import Usuarios from "./pages/Usuarios";
 import Auditoria from "./pages/Auditoria";
+import EnsinoMedio from "./pages/EnsinoMedio";
+import DesafiosEM from "./pages/DesafiosEM";
+import RedacoesEM from "./pages/RedacoesEM";
+import PlanosEstudoEM from "./pages/PlanosEstudoEM";
+import ProgressoEM from "./pages/ProgressoEM";
 import { AuditProvider } from "./contexts/AuditContext";
 
 function ProtectedRoutes() {
@@ -53,6 +58,22 @@ function ProtectedRoutes() {
       </Route>
       <Route path="/auditoria">
         <DashboardLayout><Auditoria /></DashboardLayout>
+      </Route>
+      {/* Módulo Ensino Médio */}
+      <Route path="/ensino-medio">
+        <DashboardLayout><EnsinoMedio /></DashboardLayout>
+      </Route>
+      <Route path="/ensino-medio/desafios">
+        <DashboardLayout><DesafiosEM /></DashboardLayout>
+      </Route>
+      <Route path="/ensino-medio/redacoes">
+        <DashboardLayout><RedacoesEM /></DashboardLayout>
+      </Route>
+      <Route path="/ensino-medio/planos">
+        <DashboardLayout><PlanosEstudoEM /></DashboardLayout>
+      </Route>
+      <Route path="/ensino-medio/progresso">
+        <DashboardLayout><ProgressoEM /></DashboardLayout>
       </Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

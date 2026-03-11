@@ -8,7 +8,8 @@ import { Link, useLocation } from "wouter";
 import { useAuth, type Permission } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Route, Target, Users, School, BarChart3, Settings,
-  ChevronLeft, ChevronRight, LogOut, Bell, Search, Menu, X, Rocket, Shield, UserCog, ScrollText
+  ChevronLeft, ChevronRight, LogOut, Bell, Search, Menu, X, Rocket, Shield, UserCog, ScrollText,
+  GraduationCap, Zap, PenLine, CalendarDays, TrendingUp, ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,14 @@ interface NavItem {
   path: string;
   permission: Permission;
 }
+
+const EM_NAV_ITEMS = [
+  { label: "Visão Geral", icon: GraduationCap, path: "/ensino-medio", permission: "dashboard.view" as Permission },
+  { label: "Desafios do Dia", icon: Zap, path: "/ensino-medio/desafios", permission: "missoes.view" as Permission },
+  { label: "Redações ENEM", icon: PenLine, path: "/ensino-medio/redacoes", permission: "missoes.view" as Permission },
+  { label: "Planos de Estudo", icon: CalendarDays, path: "/ensino-medio/planos", permission: "alunos.view" as Permission },
+  { label: "Progresso", icon: TrendingUp, path: "/ensino-medio/progresso", permission: "alunos.view" as Permission },
+];
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/", permission: "dashboard.view" },
@@ -50,6 +59,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : "AD";
 
   const visibleNavItems = NAV_ITEMS.filter((item) => hasPermission(item.permission));
+  const visibleEMItems = EM_NAV_ITEMS.filter((item) => hasPermission(item.permission));
+  const isEMActive = location.startsWith("/ensino-medio");
+  const [emExpanded, setEmExpanded] = useState(isEMActive);
 
   const handleLogout = () => {
     logout();
@@ -147,6 +159,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             );
           })}
+
+          {/* Grupo Ensino Médio */}
+          {!collapsed && (
+            <div className="pt-2">
+              <div
+                className="flex items-center gap-2 px-3 py-1 cursor-pointer select-none"
+                onClick={() => setEmExpanded(!emExpanded)}
+              >
+                <div className="w-0.5 h-3 rounded-full bg-gradient-to-b from-[#7C3AED] to-[#F97316]" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">Ensino Médio</span>
+                <ChevronDown className={`w-3 h-3 text-sidebar-foreground/40 ml-auto transition-transform ${emExpanded ? "rotate-180" : ""}`} />
+              </div>
+              <AnimatePresence>
+                {emExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden space-y-1 mt-1"
+                  >
+                    {visibleEMItems.map((item) => {
+                      const isActive = location === item.path || location.startsWith(item.path + "/");
+                      return (
+                        <Link key={item.path} href={item.path}>
+                          <div
+                            className={`
+                              flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                              transition-all duration-200
+                              ${isActive
+                                ? "bg-sidebar-accent text-white"
+                                : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+                              }
+                            `}
+                            onClick={() => setMobileOpen(false)}
+                          >
+                            <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-labia-orange" : ""}`} />
+                            <span>{item.label}</span>
+                            {isActive && (
+                              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-labia-orange" />
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+          {/* Collapsed: ícone EM */}
+          {collapsed && (
+            <Link href="/ensino-medio">
+              <div className={`flex items-center justify-center px-2 py-2.5 rounded-lg transition-all duration-200 ${
+                isEMActive ? "bg-sidebar-accent text-white" : "text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent/50"
+              }`}>
+                <GraduationCap className={`w-5 h-5 ${isEMActive ? "text-labia-orange" : ""}`} />
+              </div>
+            </Link>
+          )}
         </nav>
 
         {/* Logout + Collapse */}
