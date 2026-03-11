@@ -266,7 +266,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Notificações e Perfil — fixados no canto superior direito */}
+          <div className="ml-auto flex items-center gap-2">
             {/* Notifications */}
             <Button variant="ghost" size="icon" className="relative h-9 w-9">
               <Bell className="w-4 h-4" />
