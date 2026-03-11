@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Router as WouterRouter } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -22,6 +22,9 @@ import RedacoesEM from "./pages/RedacoesEM";
 import PlanosEstudoEM from "./pages/PlanosEstudoEM";
 import ProgressoEM from "./pages/ProgressoEM";
 import { AuditProvider } from "./contexts/AuditContext";
+
+// Base path for GitHub Pages deployment
+const BASE = import.meta.env.VITE_BASE_PATH ?? "";
 
 function ProtectedRoutes() {
   const { isAuthenticated } = useAuth();
@@ -87,10 +90,12 @@ function App() {
       <ThemeProvider defaultTheme="light">
         <AuthProvider>
           <AuditProvider>
-          <TooltipProvider>
-            <Toaster />
-            <ProtectedRoutes />
-          </TooltipProvider>
+            <TooltipProvider>
+              <Toaster />
+              <WouterRouter base={BASE}>
+                <ProtectedRoutes />
+              </WouterRouter>
+            </TooltipProvider>
           </AuditProvider>
         </AuthProvider>
       </ThemeProvider>
